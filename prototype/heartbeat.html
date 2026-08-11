@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Party Kingdom — Heartbeat Prototype v2</title>
+<style>
+  :root{
+    --parchment:#e8dcc0; --ink:#2a2118; --gold:#c9a227; --dim:#9a8a68;
+    --aye:#4e7d4e; --nay:#8d3b3b; --panel:rgba(24,18,10,.92);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#141009;font-family:Georgia,'Times New Roman',serif;color:var(--parchment);}
+  canvas#cv{display:block;}
+  .hud{position:absolute;user-select:none;}
+  .panel{background:var(--panel);border:1px solid #5a4a2c;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.5), inset 0 0 30px rgba(201,162,39,.04);}
+  #topbar{top:0;left:0;right:0;display:flex;align-items:center;gap:18px;padding:8px 14px;background:linear-gradient(#241c10f2,#241c10cc);border-bottom:1px solid #5a4a2c;font-size:14px;box-shadow:0 2px 12px rgba(0,0,0,.5);}
+  #topbar .phase{font-variant:small-caps;letter-spacing:1px;color:var(--gold);min-width:170px;}
+  #topbar .timer{font-size:21px;font-weight:bold;min-width:64px;transition:color .3s;}
+  #topbar .timer.warn{color:#e0684a;animation:pulse 1s infinite;}
+  @keyframes pulse{50%{opacity:.55;}}
+  .banner{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--dim);}
+  .banner .track{display:flex;gap:2px;margin:2px 0;}
+  .banner .cell{width:9px;height:9px;border:1px solid #5a4a2c;background:#1c150c;transition:background .4s, box-shadow .4s;}
+  .banner .cell.on{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .banner .cell.mid{border-color:#8a7a5c;}
+  .banner .lbl{display:flex;justify-content:space-between;width:100%;}
+  .banner.bump{animation:bump .5s;}
+  @keyframes bump{30%{transform:translateY(-3px);}}
+  #ruin{margin-left:auto;color:#c76;font-size:13px;}
+  #plinth{left:12px;top:64px;padding:10px 12px;font-size:14px;line-height:1.7;min-width:158px;}
+  #plinth b{color:var(--gold);}
+  #plinth .res{transition:transform .2s;display:block;}
+  #plinth .res.bump{transform:scale(1.15);}
+  #agenda{left:12px;bottom:12px;padding:10px 12px;font-size:12px;max-width:290px;line-height:1.5;}
+  #agenda h4{color:var(--gold);font-variant:small-caps;margin-bottom:4px;}
+  #agenda .done{color:#8fbf8f;}
+  #log{right:12px;bottom:12px;width:335px;padding:8px 12px;font-size:12px;line-height:1.55;max-height:152px;overflow:hidden;}
+  #log .h{color:var(--gold);font-variant:small-caps;}
+  #notice{right:12px;top:64px;width:335px;border-color:var(--gold);padding:12px 14px;font-size:13px;display:none;line-height:1.5;transform-origin:top right;}
+  #notice.pop{animation:unfurl .45s ease-out;}
+  @keyframes unfurl{0%{transform:scale(.6) rotate(3deg);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  #notice h3{color:var(--gold);font-size:15px;margin-bottom:6px;}
+  #notice .cat{font-size:11px;color:var(--dim);font-variant:small-caps;letter-spacing:1px;}
+  #notice .stakes{margin-top:8px;display:flex;gap:10px;}
+  #notice .stakes div{flex:1;padding:6px;border-radius:4px;font-size:12px;}
+  #notice .stakes .a{background:#2c3f2c;border:1px solid var(--aye);}
+  #notice .stakes .n{background:#3f2929;border:1px solid var(--nay);}
+  #prompt{left:50%;bottom:110px;transform:translateX(-50%);border-color:var(--gold);padding:8px 16px;font-size:15px;display:none;}
+  #chime{left:50%;top:70px;transform:translateX(-50%);border-color:var(--gold);padding:10px 22px;font-size:17px;display:none;text-align:center;animation:unfurl .3s;}
+  #gear,#devBtn{position:absolute;background:var(--panel);border:1px solid #5a4a2c;color:var(--parchment);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:13px;z-index:30;font-family:inherit;}
+  #gear{right:14px;top:44px;} #devBtn{right:84px;top:44px;}
+  .overlay{position:absolute;inset:0;background:rgba(10,8,4,.93);display:flex;align-items:center;justify-content:center;z-index:40;}
+  .card{background:linear-gradient(#2a2012,#241c10);border:2px solid var(--gold);border-radius:10px;padding:28px 34px;max-width:740px;max-height:88vh;overflow:auto;box-shadow:0 0 60px rgba(201,162,39,.15);}
+  .card h1{color:var(--gold);font-variant:small-caps;letter-spacing:2px;margin-bottom:4px;}
+  .card h2{color:var(--gold);font-size:17px;margin:14px 0 6px;font-variant:small-caps;}
+  .card p{line-height:1.6;font-size:14px;margin:6px 0;}
+  .card .sub{color:var(--dim);font-size:13px;}
+  .presets{display:flex;gap:8px;margin:8px 0;}
+  .presets button,.card .go{background:#3a2e18;color:var(--parchment);border:1px solid var(--gold);border-radius:5px;padding:7px 14px;cursor:pointer;font-family:inherit;font-size:14px;}
+  .presets button.sel{background:var(--gold);color:#241c10;font-weight:bold;}
+  .card .go{display:block;margin:18px auto 0;font-size:18px;padding:10px 34px;background:var(--gold);color:#241c10;font-weight:bold;transition:transform .15s;}
+  .card .go:hover{transform:scale(1.05);}
+  .sliders{font-size:13px;margin-top:6px;}
+  .sliders label{display:flex;align-items:center;gap:10px;margin:5px 0;}
+  .sliders input{flex:1;}
+  .sliders span{min-width:76px;text-align:right;color:var(--gold);}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px;}
+  td,th{border:1px solid #4a3c22;padding:5px 9px;text-align:left;}
+  th{color:var(--gold);font-variant:small-caps;}
+  .winner{color:var(--gold);font-weight:bold;}
+  kbd{background:#3a2e18;border:1px solid #5a4a2c;border-radius:3px;padding:0 5px;font-size:12px;font-family:inherit;}
+  #settings{display:none;position:absolute;right:14px;top:76px;z-index:31;border-color:var(--gold);padding:12px 16px;width:300px;font-size:13px;}
+  #settings h4,#dev h4{color:var(--gold);font-variant:small-caps;margin-bottom:6px;}
+  #ravenDlg{display:none;left:50%;top:40%;transform:translate(-50%,-50%);border-color:var(--gold);padding:16px 20px;z-index:35;text-align:center;}
+  #ravenDlg h4{color:var(--gold);margin-bottom:10px;}
+  #ravenDlg button{display:block;width:100%;margin:6px 0;background:#3a2e18;color:var(--parchment);border:1px solid var(--gold);border-radius:5px;padding:7px 12px;cursor:pointer;font-family:inherit;font-size:13px;}
+  /* dev panel */
+  #dev{display:none;position:absolute;left:12px;top:64px;bottom:12px;width:400px;z-index:32;border-color:#7a6fa0;padding:12px;font-size:12px;overflow:auto;}
+  #dev .tabs{display:flex;gap:6px;margin-bottom:8px;}
+  #dev .tabs button{flex:1;background:#2a2012;color:var(--parchment);border:1px solid #5a4a2c;border-radius:4px;padding:4px;cursor:pointer;font-family:inherit;font-size:12px;}
+  #dev .tabs button.sel{border-color:#7a6fa0;background:#332a4a;}
+  #dev select,#dev textarea,#dev input[type=text]{width:100%;background:#1c150c;color:var(--parchment);border:1px solid #5a4a2c;border-radius:4px;font-family:monospace;font-size:11px;padding:4px;margin:4px 0;}
+  #dev textarea{height:210px;resize:vertical;}
+  #dev button.act{background:#3a2e18;color:var(--parchment);border:1px solid var(--gold);border-radius:4px;padding:4px 10px;cursor:pointer;font-family:inherit;font-size:12px;margin:2px 4px 2px 0;}
+  #dev .err{color:#e0684a;font-size:11px;min-height:14px;}
+  #dev .hint{color:var(--dim);font-size:11px;line-height:1.4;margin:4px 0;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="topbar" class="hud" style="display:none;">
+  <div class="phase" id="phaseLbl">Season 1 · Roam</div>
+  <div class="timer" id="timerLbl">7:00</div>
+  <div class="banner" id="bCrown"><div class="lbl"><span>Throne</span><span>Commons</span></div><div class="track" id="trCrown"></div><div>The Crown</div></div>
+  <div class="banner" id="bWay"><div class="lbl"><span>Old Ways</span><span>New Ways</span></div><div class="track" id="trWay"></div><div>The Way</div></div>
+  <div class="banner" id="bLand"><div class="lbl"><span>Wild</span><span>Tamed</span></div><div class="track" id="trLand"></div><div>The Land</div></div>
+  <div id="ruin">Ruin 0/8</div>
+</div>
+<button id="gear" style="display:none;">⏱ time</button>
+<button id="devBtn" style="display:none;">🛠 dev</button>
+<div id="settings" class="hud panel">
+  <h4>Time Controls (live)</h4>
+  <div class="sliders">
+    <label>Roam <input type="range" id="sRoam" min="60" max="720" step="30" value="420"><span id="vRoam">7:00</span></label>
+    <label>Council <input type="range" id="sCouncil" min="60" max="300" step="15" value="150"><span id="vCouncil">2:30</span></label>
+    <label>Seasons <input type="range" id="sSeasons" min="3" max="10" step="1" value="6"><span id="vSeasons">6</span></label>
+  </div>
+</div>
+
+<div id="dev" class="hud panel">
+  <h4>🛠 Dev Tools</h4>
+  <div class="tabs">
+    <button data-t="dilemmas" class="sel">Dilemmas</button><button data-t="pois">Locations</button><button data-t="game">Game</button>
+  </div>
+  <div id="devDilemmas">
+    <select id="dSel"></select>
+    <textarea id="dJson" spellcheck="false"></textarea>
+    <div class="err" id="dErr"></div>
+    <button class="act" id="dApply">Apply</button>
+    <button class="act" id="dNew">New card</button>
+    <button class="act" id="dPlayNext">Queue as next dilemma</button>
+    <div class="hint">Fields: id, cat, title, text, aye/nay {label, fx:{crown,way,land ±n}, pay:{all|side|leader:'prov|mat|mil|power', n}, ruin}. Chain cards use req:['w1','aye'].</div>
+  </div>
+  <div id="devPois" style="display:none;">
+    <select id="pSel"></select>
+    <textarea id="pJson" spellcheck="false" style="height:150px;"></textarea>
+    <div class="err" id="pErr"></div>
+    <button class="act" id="pApply">Apply</button>
+    <button class="act" id="pNew">New location</button>
+    <label style="display:block;margin-top:6px;"><input type="checkbox" id="pDrag"> drag locations on the map</label>
+    <div class="hint">Types: gather (res: prov|mat|mil, stockMax), market, rookery, shrine, quest. Drag mode: click & drag any location.</div>
+  </div>
+  <div id="devGame" style="display:none;">
+    <button class="act" id="gSkip">Skip phase ⏭</button>
+    <button class="act" id="gRes">+5 all resources</button>
+    <button class="act" id="gRuin">+1 Ruin</button>
+    <label style="display:block;margin-top:8px;">Time scale <input type="range" id="gTs" min="0.5" max="20" step="0.5" value="1" style="width:150px;vertical-align:middle;"> <span id="gTsV">1×</span></label>
+    <div style="margin-top:10px;">
+      <button class="act" id="gExport">⬇ Export content JSON</button>
+      <button class="act" id="gImportBtn">⬆ Import</button>
+      <textarea id="gImport" spellcheck="false" style="height:90px;display:none;" placeholder="paste content JSON, then press Import again"></textarea>
+    </div>
+    <div class="err" id="gErr"></div>
+    <div class="hint">Export gives {singles, chain, pois} — the same shape the real content pipeline will use. Edit anywhere, import back, or drop the file to me in chat to workshop it.</div>
+  </div>
+</div>
+
+<div id="plinth" class="hud panel" style="display:none;"></div>
+<div id="agenda" class="hud panel" style="display:none;"></div>
+<div id="notice" class="hud panel"></div>
+<div id="log" class="hud panel" style="display:none;"><div class="h">Herald's Record</div><div id="logBody"></div></div>
+<div id="prompt" class="hud panel"></div>
+<div id="chime" class="hud panel"></div>
+<div id="ravenDlg" class="hud panel"></div>
+
+<div class="overlay" id="startOverlay">
+  <div class="card">
+    <h1>Party Kingdom</h1>
+    <p class="sub">Heartbeat prototype v2 — one player + 3 bots, open agendas. Does roam → assemble → bid feel good?</p>
+    <h2>Session length</h2>
+    <div class="presets">
+      <button data-p="standard">Standard (7m/2.5m ×6)</button>
+      <button data-p="quick" class="sel">Quick (3m/1.5m ×4)</button>
+      <button data-p="blitz">Blitz (90s/60s ×3)</button>
+    </div>
+    <div class="sliders">
+      <label>Roam <input type="range" id="s0Roam" min="60" max="720" step="30" value="180"><span id="v0Roam">3:00</span></label>
+      <label>Council <input type="range" id="s0Council" min="60" max="300" step="15" value="90"><span id="v0Council">1:30</span></label>
+      <label>Seasons <input type="range" id="s0Seasons" min="3" max="10" step="1" value="4"><span id="v0Seasons">4</span></label>
+    </div>
+    <h2>How to play</h2>
+    <p><b>Click a location to walk there and use it.</b> Click ground to move (<kbd>WASD</kbd> works too) · <kbd>Space</kbd> or click your platform again to commit 1 Power at Council · <kbd>R</kbd> raven-vote from afar · <b>scroll to zoom</b>, <kbd>M</kbd> for the war-map.</p>
+    <p>Each Season: roam and gather. Mid-roam the Herald posts the next dilemma. When the horn sounds, race to the Council and bid Power — your first token locks your side. Or skip it: <i>Tending</i> players keep the emptied map and earn a stipend.</p>
+    <p class="sub">Gather spots have per-season stock (watch the mill blades stop) and a personal cooldown. The scale, banners, everyone's resources: all public. 🛠 dev tools are top right.</p>
+    <button class="go" id="startBtn">Begin the Reign</button>
+  </div>
+</div>
+
+<div class="overlay" id="endOverlay" style="display:none;">
+  <div class="card" id="endCard"></div>
+</div>
+
+<script>
+"use strict";
+/* ============================== CONFIG ============================== */
+const qs = new URLSearchParams(location.search);
+const RUNTIME = { ts: parseFloat(qs.get('ts') || '1') };
+const CFG = {
+  roamSec: 180, councilSec: 90, seasons: 4,
+  postAtRemaining: 0.55, hornSec: 45, deliberationFrac: 0.4, interludeSec: 6,
+  baseSpeed: 175, channelSec: 3, personalCd: 45, harvestYield: 1,
+  stipend: 1, leaderFavor: 2, ravenCost: 3, ferryCost: 1, shrineCost: 1, shrineCd: 90,
+};
+const PRESETS = {
+  standard:{roamSec:420, councilSec:150, seasons:6},
+  quick:{roamSec:180, councilSec:90, seasons:4},
+  blitz:{roamSec:90, councilSec:60, seasons:3},
+};
+/* ============================== WORLD =============================== */
+const W = 2000, H = 1400;
+const RIVER = {x1:1180, x2:1244};
+const BRIDGE = {y1:620, y2:740};
+const FERRY_W = {x:1120, y:1120}, FERRY_E = {x:1304, y:1120};
+const TOWN = {x:680, y:660};
+const PLAT_AYE = {x1:560, y1:770, x2:660, y2:870};
+const PLAT_NAY = {x1:700, y1:770, x2:800, y2:870};
+const ZONES = [
+  {x1:0,y1:0,x2:W,y2:H, mult:1.0, col:'#5f6e47'},
+  {x1:0,y1:420,x2:520,y2:1040, mult:0.9, col:'#8f8449'},
+  {x1:1420,y1:0,x2:W,y2:520, mult:0.5, col:'#6e6862'},
+  {x1:1380,y1:900,x2:W,y2:H, mult:0.55, col:'#3f5636'},
+  {x1:760,y1:1140,x2:1120,y2:H, mult:0.7, col:'#4c5e40'},
+];
+const ROADS = [
+  {x1:0,y1:640,x2:W,y2:720, mult:1.35, col:'#a08c5e'},
+  {x1:640,y1:0,x2:720,y2:H, mult:1.35, col:'#a08c5e'},
+];
+function terrainMult(x,y){
+  let m=1.0;
+  for(const z of ZONES) if(x>=z.x1&&x<z.x2&&y>=z.y1&&y<z.y2) m=z.mult;
+  for(const r of ROADS) if(x>=r.x1&&x<r.x2&&y>=r.y1&&y<r.y2) m=Math.max(m,r.mult);
+  return m;
+}
+function inRiver(x,y){ return x>RIVER.x1 && x<RIVER.x2 && !(y>BRIDGE.y1 && y<BRIDGE.y2); }
+function inRect(p,r){ return p.x>=r.x1&&p.x<=r.x2&&p.y>=r.y1&&p.y<=r.y2; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+/* ============================== CONTENT ============================= */
+let POIS = [
+  {id:'mill',    name:'Old Mill',       type:'gather', res:'prov', x:300,  y:700,  stockMax:4},
+  {id:'farm',    name:'Riverfield Farm',type:'gather', res:'prov', x:360,  y:990,  stockMax:3},
+  {id:'mine',    name:'Deep Mine',      type:'gather', res:'mat',  x:1680, y:280,  stockMax:4},
+  {id:'timber',  name:'Timber Camp',    type:'gather', res:'mat',  x:1620, y:1130, stockMax:3},
+  {id:'garrison',name:'Garrison',       type:'gather', res:'mil',  x:1480, y:680,  stockMax:4},
+  {id:'market',  name:'Market',         type:'market',             x:820,  y:560},
+  {id:'rookery', name:'Rookery',        type:'rookery',            x:540,  y:560},
+  {id:'shrine',  name:'Wild Shrine',    type:'shrine',             x:940,  y:1250},
+  {id:'camp',    name:'Border Camp',    type:'quest',              x:1860, y:690},
+];
+const RES_NAMES = {prov:'Provisions', mat:'Materials', mil:'Military', power:'Power'};
+const RES_COL = {prov:'#8fbf6f', mat:'#b0967a', mil:'#c05e5e', power:'#c9a227'};
+const RES_ICON = {prov:'☘', mat:'⛏', mil:'⚔', power:'⚜'};
+let CHAIN_WAR = [
+ {id:'w1', cat:'The War in the South', title:'Drums at the Border',
+  text:'A rival banner masses beyond the southern hills. The marshals beg for levies; the villages beg to keep their sons.',
+  aye:{label:'Raise the levies', fx:{crown:-1, land:1}, pay:{side:'mil',n:1}},
+  nay:{label:'Trust to diplomacy', fx:{crown:1, way:-1}}},
+ {id:'w2a', cat:'The War in the South', title:'The Long March', req:['w1','aye'],
+  text:'Your levies march south, and the fields lie half-tended behind them. The quartermasters ask: press the attack, or dig in and let the harvest come home?',
+  aye:{label:'Press the attack', fx:{crown:-1, way:1}, pay:{leader:'mil',n:2}},
+  nay:{label:'Dig in for winter', fx:{land:1}, pay:{all:'prov',n:1}}},
+ {id:'w2b', cat:'The War in the South', title:'The Envoy\'s Price', req:['w1','nay'],
+  text:'The rival court sends an envoy. Peace can be bought — with a royal marriage the old families despise, binding the thrones together.',
+  aye:{label:'Bind the thrones', fx:{crown:-1, way:1}},
+  nay:{label:'Refuse the match', fx:{way:-1}, ruin:1}},
+ {id:'w3', cat:'The War in the South', title:'What the War Left',
+  text:'However it ended, the south is changed: roads cut for wagons, shrines cracked by hooves, and veterans who will not go quietly back to the plough.',
+  aye:{label:'Grant them land', fx:{land:1, crown:1}},
+  nay:{label:'Grant them arms', fx:{crown:-1}, pay:{side:'mil',n:1}}},
+];
+let SINGLES = [
+ {id:'s1', cat:'The Strange Faith', title:'Lights in the Fen',
+  text:'Pilgrims gather at lights seen dancing over the fen. The old priests call it heresy; the young call it a sign.',
+  aye:{label:'Sanction the pilgrimage', fx:{way:1, land:-1}},
+  nay:{label:'Forbid the gathering', fx:{way:-1, crown:-1}}},
+ {id:'s2', cat:'The Famine Year', title:'The Sealed Granary',
+  text:'The royal granary holds enough to soften a hard winter — or to guarantee the court eats well whatever comes.',
+  aye:{label:'Open the granary', fx:{crown:1}, pay:{all:'prov',n:1}},
+  nay:{label:'Keep it sealed', fx:{crown:-1}, ruin:1}},
+ {id:'s3', cat:'The Discovery', title:'The Engine of Wheels',
+  text:'A tinker demonstrates a mill that needs no river. The millers\' guild demands it burn; the builders demand ten more.',
+  aye:{label:'Fund the tinker', fx:{way:1, land:1}, pay:{leader:'mat',n:2}},
+  nay:{label:'Let the guild decide', fx:{way:-1}}},
+ {id:'s4', cat:'The Court', title:'The Queen\'s Progress',
+  text:'The Queen proposes to tour the far villages in state. Splendour knits a kingdom — and empties a treasury.',
+  aye:{label:'Fund the progress', fx:{crown:-1, land:1}},
+  nay:{label:'A quiet year', fx:{crown:1}}},
+ {id:'s5', cat:'The Discovery', title:'The Barrow Door',
+  text:'Miners break into a barrow older than the crown. Scholars want it opened; the hill-folk want it sealed and the mine abandoned.',
+  aye:{label:'Open the barrow', fx:{way:1, land:-1}, pay:{side:'mat',n:1}},
+  nay:{label:'Seal it and pay the miners', fx:{land:-1, way:-1}}},
+ {id:'s6', cat:'The Court', title:'The Falconer\'s Debt',
+  text:'A beloved court falconer is caught selling secrets. The law says the block; half the court owes him favours.',
+  aye:{label:'The law is the law', fx:{crown:-1, way:-1}},
+  nay:{label:'Quiet exile', fx:{crown:1}, ruin:1}},
+ {id:'s7', cat:'The Famine Year', title:'The Fisher Fleet',
+  text:'Strange shoals crowd the coast. Doubling the fleet would feed thousands — and strip the wild waters bare.',
+  aye:{label:'Double the fleet', fx:{land:1}, pay:{all:'prov',n:1}},
+  nay:{label:'Fish the old limits', fx:{land:-1}}},
+ {id:'s8', cat:'The Strange Faith', title:'The Unwritten Book',
+  text:'A hermit arrives with a book she says the fen-lights told her. The scribes want it copied; the priests want it drowned.',
+  aye:{label:'Copy it in every town', fx:{way:1}},
+  nay:{label:'Drown it in the fen', fx:{way:-1, land:-1}}},
+];
+/* ============================== ACTORS ============================== */
+function mkActor(id,name,short,col,isBot,agenda){
+  return {id,name,short,col,isBot,agenda, x:TOWN.x+rnd(-60,60), y:TOWN.y+220+rnd(0,60),
+    res:{power:2, prov:0, mat:0, mil:0}, ravens:0,
+    cds:{}, channel:null, target:null, moveTarget:null, plan:null, side:null, committed:0, ravenVoted:false,
+    bob:0, moving:false, dir:1,
+    stats:{tends:0, committed:0, winningCommitted:0, attended:0, harvests:0, led:0}, questDone:false};
+}
+function isMost(g,a,res){ const v=a.res[res]; return g.actors.every(o=>o===a||o.res[res]<v); }
+function isMostTotal(g,a){ const t=o=>o.res.prov+o.res.mat+o.res.mil; const v=t(a); return g.actors.every(o=>o===a||t(o)<v); }
+const AGENDAS = {
+  player:{arch:'The Wildkeeper', lines:[
+    {key:'landWild', txt:'The Land ends Wild (≤ −2)', pts:3, test:g=>g.banners.land<=-2},
+    {key:'mostProv', txt:'End holding the most Provisions', pts:2, test:(g,a)=>isMost(g,a,'prov')},
+    {key:'quest',    txt:'Deliver 3 Military to the Border Camp', pts:2, test:(g,a)=>a.questDone},
+  ]},
+  marshal:{arch:'The Marshal', want:{banner:'crown', dir:-1}, lines:[
+    {key:'crown', txt:'The Crown ends with the Throne (≤ −2)', pts:3, test:g=>g.banners.crown<=-2},
+    {key:'mil',   txt:'End holding the most Military', pts:2, test:(g,a)=>isMost(g,a,'mil')},
+  ]},
+  merchant:{arch:'The Merchant Prince', want:{banner:'land', dir:1}, lines:[
+    {key:'land', txt:'The Land ends Tamed (≥ +2)', pts:3, test:g=>g.banners.land>=2},
+    {key:'rich', txt:'End holding the most total resources', pts:2, test:(g,a)=>isMostTotal(g,a)},
+  ]},
+  zealot:{arch:'The Zealot', want:{banner:'way', dir:-1}, lines:[
+    {key:'way',  txt:'The Way ends with the Old Ways (≤ −2)', pts:3, test:g=>g.banners.way<=-2},
+    {key:'power',txt:'End holding the most Power', pts:2, test:(g,a)=>isMost(g,a,'power')},
+  ]},
+};
+/* ============================== GAME ================================ */
+const game = {
+  state:'menu', season:1, phaseT:0, phaseDur:1,
+  banners:{crown:0, way:0, land:0}, ruin:0,
+  actors:[], player:null,
+  deck:[], outcomes:{}, dilemma:null, posted:false, hornDone:false, forcedNext:null,
+  ayePot:0, nayPot:0, bids:{},
+  shrineCd:0, queenLean:null, lastOutcome:null, log:[], t:0,
+};
+window.game = game;
+function buildDeck(n){
+  const singles = shuffle(SINGLES.slice());
+  const deck = [];
+  for(let s=1;s<=n;s++){
+    if(s===1) deck.push('w1');
+    else if(s===3 && n>=4) deck.push('CHAIN2');
+    else if((s===5&&n>=5)||(s===n&&n===4)) deck.push('w3');
+    else deck.push((singles.pop()||SINGLES[0]).id);
+  }
+  return deck;
+}
+function cardById(id){
+  if(id==='CHAIN2'){ const o=game.outcomes['w1']||'nay'; id = o==='aye'?'w2a':'w2b'; }
+  return CHAIN_WAR.find(c=>c.id===id) || SINGLES.find(c=>c.id===id) || SINGLES[0];
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function startGame(){
+  game.actors = [
+    game.player = mkActor('you','You (The Wildkeeper)','You','#ead9b0',false,AGENDAS.player),
+    mkActor('marta','Marta','Marta','#b05555',true,AGENDAS.marshal),
+    mkActor('bren','Bren','Bren','#c9a227',true,AGENDAS.merchant),
+    mkActor('sable','Sable','Sable','#8a7fc0',true,AGENDAS.zealot),
+  ];
+  game.deck = buildDeck(CFG.seasons);
+  POIS.forEach(p=>{ if(p.type==='gather') p.stock=p.stockMax; });
+  game.season=1; game.banners={crown:0,way:0,land:0}; game.ruin=0; game.outcomes={};
+  startRoam();
+  ['topbar','plinth','agenda','log'].forEach(id=>show(id,true));
+  document.getElementById('gear').style.display='block';
+  document.getElementById('devBtn').style.display='block';
+  document.getElementById('startOverlay').style.display='none';
+  addLog(`<b>Season 1.</b> The Reign begins. ${CFG.seasons} seasons on the hourglass.`);
+}
+function startRoam(){
+  game.state='roam'; game.phaseT=0; game.phaseDur=CFG.roamSec;
+  game.posted=false; game.hornDone=false; game.dilemma=null;
+  game.ayePot=0; game.nayPot=0; game.bids={};
+  game.actors.forEach(a=>{ a.side=null; a.committed=0; a.ravenVoted=false; a.plan=null; a.target=null; });
+  document.getElementById('notice').style.display='none';
+}
+function heraldPost(){
+  game.posted=true;
+  let id = game.forcedNext || game.deck[game.season-1];
+  game.forcedNext=null;
+  if(!id) id = SINGLES[Math.floor(Math.random()*SINGLES.length)].id;
+  const card = cardById(id);
+  game.dilemma=card;
+  game.queenLean = Math.random()<0.5?'aye':'nay';
+  renderNotice(card);
+  chime(`📜 The Herald posts a dilemma: “${card.title}”`, 4);
+  tone(660,.15); tone(880,.15,.18);
+  addLog(`The Herald posts: <b>${card.title}</b> <span style="color:var(--dim)">(${card.cat})</span>`);
+  game.actors.forEach(a=>{ if(a.isBot) a.plan=botPlanVote(a,card); });
+}
+function horn(){
+  game.hornDone=true; addShake(7); flash(0.35);
+  chime('🎺 The horn sounds — Assembly! The Council convenes when the sand runs out.', 5);
+  tone(392,.4); tone(523,.5,.35);
+}
+function startCouncil(){
+  game.state='council'; game.phaseT=0; game.phaseDur=CFG.councilSec;
+  chime(`⚖ The Council convenes: “${game.dilemma.title}”`, 3.5);
+  addLog(`The Council convenes on <b>${game.dilemma.title}</b>.`);
+}
+function biddingOpen(){ return game.state==='council' && game.phaseT >= game.phaseDur*CFG.deliberationFrac; }
+function commitPower(a, side, n, viaRaven){
+  if(a.res.power<n || n<1) return false;
+  if(a.side && a.side!==side) return false;
+  a.side=side; a.committed+=n; a.res.power-=n; a.stats.committed+=n;
+  if(viaRaven) a.ravenVoted=true;
+  if(side==='aye') game.ayePot+=n; else game.nayPot+=n;
+  if(!game.bids[a.id]) game.bids[a.id]={side, amt:0, t:game.phaseT};
+  game.bids[a.id].amt+=n; game.bids[a.id].tLast=game.phaseT;
+  // juice: token flies to the pan
+  const pan = panPos(side);
+  flyers.push({x:a.x, y:a.y-30, tx:pan.x, ty:pan.y, t:0, col:'#c9a227'});
+  if(!a.isBot){ bumpRes('power'); }
+  tone(700+rnd(-40,40),.07);
+  return true;
+}
+function gavel(){
+  const d=game.dilemma; let winner;
+  if(game.ayePot===0 && game.nayPot===0){
+    winner=game.queenLean; game.ruin=Math.min(8,game.ruin+1);
+    addLog(`Nobody voted. <b>The Queen decides (${winner==='aye'?d.aye.label:d.nay.label})</b> — and the realm frays. Ruin +1.`);
+  } else if(game.ayePot===game.nayPot){
+    winner=game.queenLean;
+    addLog(`Dead scale. <b>The Queen breaks the tie: ${winner==='aye'?'Aye':'Nay'}.</b>`);
+  } else winner = game.ayePot>game.nayPot?'aye':'nay';
+  game.outcomes[d.id]=winner;
+  const opt=d[winner];
+  for(const k of ['crown','way','land']) if(opt.fx && opt.fx[k]){ game.banners[k]=clamp(game.banners[k]+opt.fx[k],-4,4); bumpBanner(k); }
+  if(opt.ruin) game.ruin=Math.min(8,game.ruin+opt.ruin);
+  let leader=null,best=-1,bestT=1e9;
+  for(const a of game.actors){ const b=game.bids[a.id];
+    if(b && b.side===winner && (b.amt>best||(b.amt===best&&b.t<bestT))){ leader=a; best=b.amt; bestT=b.t; } }
+  if(leader){ leader.res.power+=CFG.leaderFavor; leader.stats.led++;
+    floaters.push({x:leader.x,y:leader.y-46,txt:`Leader +${CFG.leaderFavor}⚜`,col:'#c9a227',t:0}); }
+  let payTxt='';
+  if(opt.pay){
+    if(opt.pay.all){ game.actors.forEach(a=>{a.res[opt.pay.all]+=opt.pay.n;
+      floaters.push({x:a.x,y:a.y-34,txt:`+${opt.pay.n}${RES_ICON[opt.pay.all]}`,col:RES_COL[opt.pay.all],t:0});});
+      payTxt=` Everyone gains ${opt.pay.n} ${RES_NAMES[opt.pay.all]}.`; }
+    if(opt.pay.side){ game.actors.forEach(a=>{ if(game.bids[a.id]?.side===winner){ a.res[opt.pay.side]+=opt.pay.n;
+      floaters.push({x:a.x,y:a.y-34,txt:`+${opt.pay.n}${RES_ICON[opt.pay.side]}`,col:RES_COL[opt.pay.side],t:0});} });
+      payTxt=` The winning side gains ${opt.pay.n} ${RES_NAMES[opt.pay.side]}.`; }
+    if(opt.pay.leader && leader){ leader.res[opt.pay.leader]+=opt.pay.n; payTxt=` The Leader gains ${opt.pay.n} ${RES_NAMES[opt.pay.leader]}.`; }
+  }
+  for(const a of game.actors){
+    const b=game.bids[a.id];
+    if(b){ a.stats.attended++; if(b.side===winner) a.stats.winningCommitted+=b.amt; }
+    else { a.res.power+=CFG.stipend; a.stats.tends++;
+      floaters.push({x:a.x,y:a.y-34,txt:`Stipend +${CFG.stipend}⚜`,col:'#c9a227',t:0}); }
+  }
+  game.lastOutcome={title:d.title, choice:opt.label, winner, aye:game.ayePot, nay:game.nayPot,
+    leader:leader?leader.short:null, payTxt};
+  addLog(`<b>${opt.label}</b> carries (Aye ${game.ayePot} · Nay ${game.nayPot}).`+
+    (leader?` ${leader.short} leads it (+${CFG.leaderFavor} Power).`:'')+payTxt);
+  POIS.forEach(p=>{ if(p.type==='gather') p.stock=p.stockMax; });
+  addShake(10); flash(0.5); burst(panPos(winner).x, panPos(winner).y, winner==='aye'?'#7db87d':'#c07070', 26);
+  game.state='interlude'; game.phaseT=0; game.phaseDur=CFG.interludeSec;
+  tone(330,.3); tone(262,.5,.3);
+}
+function nextSeason(){
+  if(game.season>=CFG.seasons || game.ruin>=8) return endReign();
+  game.season++;
+  addLog(`<b>Season ${game.season}.</b>`);
+  startRoam();
+}
+function endReign(){
+  game.state='end';
+  const rows=game.actors.map(a=>{
+    let pts=0; const lines=a.agenda.lines.map(l=>{ const ok=l.test(game,a); if(ok)pts+=l.pts;
+      return `<span class="${ok?'done':''}">${ok?'✓':'✗'} ${l.txt} (${l.pts})</span>`; });
+    return {a,pts,lines};
+  }).sort((x,y)=>y.pts-x.pts);
+  const sup=superlatives(); const b=game.banners;
+  const pole=(v,l,r)=> v<=-2?l : v>=2?r : 'Contested';
+  let html=`<h1>The Coronation</h1>
+    <p class="sub">The kingdom stands: The Crown — <b>${pole(b.crown,'Throne','Commons')}</b> · The Way — <b>${pole(b.way,'Old Ways','New Ways')}</b> · The Land — <b>${pole(b.land,'Wild','Tamed')}</b> · Ruin ${game.ruin}/8</p>
+    <table><tr><th>Player</th><th>Agenda</th><th>Pts</th></tr>`;
+  rows.forEach((r,i)=>{ html+=`<tr class="${i===0?'winner':''}"><td>${r.a.name}${i===0?' 👑':''}</td><td>${r.lines.join('<br>')}</td><td>${r.pts}</td></tr>`; });
+  html+=`</table><h2>Titles of the Reign</h2>`;
+  sup.forEach(s=> html+=`<p>🏅 <b>${s.name}</b> — ${s.title}</p>`);
+  html+=`<button class="go" onclick="location.reload()">Another Reign</button>`;
+  document.getElementById('endCard').innerHTML=html;
+  document.getElementById('endOverlay').style.display='flex';
+}
+function superlatives(){
+  const out=[]; const by=f=>game.actors.slice().sort((a,b)=>f(b)-f(a))[0];
+  const t1=by(a=>a.stats.committed); out.push({name:t1.short, title:`The Deep Pockets — committed ${t1.stats.committed} Power at Council`});
+  const t2=by(a=>a.stats.tends); out.push({name:t2.short, title:`The Dutiful — tended the realm through ${t2.stats.tends} councils`});
+  const t3=by(a=>a.stats.harvests); out.push({name:t3.short, title:`The Provider — ${t3.stats.harvests} harvests brought home`});
+  const t4=by(a=>a.stats.led); out.push({name:t4.short, title:`The Voice — led ${t4.stats.led} dilemmas`});
+  return out;
+}
+/* ============================== BOTS ================================ */
+function botPlanVote(a,card){
+  const w=a.agenda.want; if(!w) return {attend:false};
+  const gain=side=>((card[side].fx||{})[w.banner]||0)*w.dir;
+  const ga=gain('aye'), gn=gain('nay');
+  if(ga===gn) return {attend:Math.random()<0.25, side:Math.random()<0.5?'aye':'nay', max:1};
+  const side= ga>gn?'aye':'nay';
+  const stake=Math.abs(ga-gn);
+  const urgency=Math.abs(game.banners[w.banner]*w.dir-4)/8 + stake*0.4;
+  const max=clamp(Math.round(urgency*(1.5+Math.random()*2)),1,Math.max(1,a.res.power-1));
+  return {attend:a.res.power>0 && Math.random()<0.45+urgency*0.5, side, max};
+}
+function botUpdate(a,dt){
+  a.moving=false;
+  if(game.state==='council'){
+    if(a.plan && a.plan.attend){
+      const plat=a.plan.side==='aye'?PLAT_AYE:PLAT_NAY;
+      const cx=(plat.x1+plat.x2)/2+((a.id.charCodeAt(0)%3)-1)*22, cy=(plat.y1+plat.y2)/2;
+      if(dist(a,{x:cx,y:cy})>14) moveToward(a,{x:cx,y:cy},dt);
+      else if(biddingOpen() && a.committed<a.plan.max && a.res.power>0 && Math.random()<dt*0.7)
+        commitPower(a,a.plan.side,1,false);
+      return;
+    }
+  }
+  if(game.state==='roam' && game.hornDone && a.plan && a.plan.attend){
+    moveToward(a,{x:(PLAT_AYE.x2+PLAT_NAY.x1)/2, y:820},dt); return;
+  }
+  if(a.channel){ a.channel.t+=dt; if(a.channel.t>=CFG.channelSec) finishHarvest(a,a.channel.poi); return; }
+  if(!a.target || a.target.done){
+    const want = a.agenda.want ? (a.agenda.lines[1].key==='mil'?'mil': a.agenda.lines[1].key==='rich'?['prov','mat','mil'][Math.floor(Math.random()*3)] : 'prov') : 'prov';
+    const options=POIS.filter(p=>p.type==='gather' && p.stock>0 && !(a.cds[p.id]>0));
+    if(!options.length){ a.target={x:TOWN.x+rnd(-200,200), y:TOWN.y+rnd(-100,300), done:false}; }
+    else { const pref=options.filter(p=>p.res===want);
+      const pool=pref.length?pref:options;
+      const pick=pool[Math.floor(Math.random()*pool.length)];
+      a.target={x:pick.x,y:pick.y,poi:pick,done:false}; }
+  }
+  if(a.target){
+    if(dist(a,a.target)<26){
+      if(a.target.poi && a.target.poi.stock>0 && !(a.cds[a.target.poi.id]>0)) a.channel={poi:a.target.poi,t:0};
+      a.target.done=true;
+    } else moveToward(a,a.target,dt);
+  }
+}
+function moveToward(a,t,dt){
+  let goal=t;
+  const crossing=(a.x<RIVER.x1&&t.x>RIVER.x2)||(a.x>RIVER.x2&&t.x<RIVER.x1);
+  if(crossing && !(a.y>BRIDGE.y1&&a.y<BRIDGE.y2)) goal={x:(RIVER.x1+RIVER.x2)/2, y:(BRIDGE.y1+BRIDGE.y2)/2};
+  const d=dist(a,goal); if(d<1) return;
+  const sp=CFG.baseSpeed*terrainMult(a.x,a.y)*dt;
+  const nx=a.x+(goal.x-a.x)/d*sp, ny=a.y+(goal.y-a.y)/d*sp;
+  if(!inRiver(nx,ny)){a.x=nx;a.y=ny;} else if(!inRiver(a.x,ny)){a.y=ny;} else if(!inRiver(nx,a.y)){a.x=nx;}
+  a.moving=true; a.bob+=dt*10; a.dir = (goal.x>=a.x)?1:-1;
+  if(Math.random()<dt*6) dust(a.x+rnd(-6,6), a.y+12);
+}
+function finishHarvest(a,poi){
+  a.channel=null;
+  if(poi.stock<=0) return;
+  poi.stock--; a.res[poi.res]+=CFG.harvestYield; a.cds[poi.id]=CFG.personalCd; a.stats.harvests++;
+  floaters.push({x:poi.x,y:poi.y-34,txt:`+${CFG.harvestYield}${RES_ICON[poi.res]}`,col:RES_COL[poi.res],t:0});
+  burst(poi.x,poi.y-10,RES_COL[poi.res],10);
+  if(!a.isBot){ addLog(`You harvest 1 ${RES_NAMES[poi.res]} at the ${poi.name}. (${poi.stock} left this season)`); bumpRes(poi.res); tone(520,.09); }
+}
+/* ============================== PLAYER ============================== */
+const keys={};
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase(); keys[k]=true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if(e.key===' ') tryCommit();
+  if(k==='e') tryInteractNearest();
+  if(k==='r') tryRaven();
+  if(k==='m') toggleWarMap();
+});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+function playerUpdate(dt){
+  const p=game.player; p.moving=false;
+  if(p.channel){ p.channel.t+=dt;
+    if(dist(p,p.channel.poi)>30){ p.channel=null; }
+    else if(p.channel.t>=CFG.channelSec) finishHarvest(p,p.channel.poi);
+    return;
+  }
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup'])dy-=1; if(keys['s']||keys['arrowdown'])dy+=1;
+  if(keys['a']||keys['arrowleft'])dx-=1; if(keys['d']||keys['arrowright'])dx+=1;
+  if(dx||dy){ p.moveTarget=null; p.pending=null; const l=Math.hypot(dx,dy);
+    const sp=CFG.baseSpeed*terrainMult(p.x,p.y)*dt;
+    const nx=clamp(p.x+dx/l*sp,10,W-10), ny=clamp(p.y+dy/l*sp,10,H-10);
+    if(!inRiver(nx,ny)){p.x=nx;p.y=ny;} else if(!inRiver(p.x,ny)){p.y=ny;} else if(!inRiver(nx,p.y)){p.x=nx;}
+    p.moving=true; p.bob+=dt*10; p.dir=dx? (dx>0?1:-1):p.dir;
+    if(Math.random()<dt*6) dust(p.x+rnd(-6,6),p.y+12);
+  } else if(p.moveTarget){
+    moveToward(p,p.moveTarget,dt);
+    if(dist(p,p.moveTarget)<10){
+      p.moveTarget=null;
+      if(p.pending){ const act=p.pending; p.pending=null; doInteract(act); }
+    }
+  }
+}
+function nearestPoi(){ let best=null,bd=44; for(const poi of POIS){ const d=dist(game.player,poi); if(d<bd){bd=d;best=poi;} } return best; }
+function onPlatform(){ const p=game.player;
+  if(inRect(p,PLAT_AYE))return 'aye'; if(inRect(p,PLAT_NAY))return 'nay'; return null; }
+function tryInteractNearest(){
+  const p=game.player;
+  if(dist(p,FERRY_W)<44||dist(p,FERRY_E)<44) return doInteract({type:'ferry'});
+  const poi=nearestPoi();
+  if(poi) doInteract({type:'poi', poi});
+}
+function doInteract(act){
+  const p=game.player;
+  if(act.type==='ferry'){
+    if(p.res.power>=CFG.ferryCost){ p.res.power-=CFG.ferryCost; bumpRes('power');
+      const t=dist(p,FERRY_W)<dist(p,FERRY_E)?FERRY_E:FERRY_W;
+      burst(p.x,p.y,'#7ea7c9',12); p.x=t.x; p.y=t.y; burst(p.x,p.y,'#7ea7c9',16);
+      addLog(`You pay the ferryman ${CFG.ferryCost} Power.`); tone(440,.1);
+    } else addLog(`The ferryman wants ${CFG.ferryCost} Power.`);
+    return;
+  }
+  const poi=act.poi;
+  if(!poi || dist(p,poi)>46) return;
+  const shuttered = game.state==='council' && (poi.type==='shrine'||poi.type==='rookery');
+  if(shuttered){ addLog(`The ${poi.name} is shuttered — its keeper attends the Council.`); return; }
+  if(poi.type==='gather'){
+    if(poi.stock<=0){ addLog(`The ${poi.name} is out of stock this season.`); return; }
+    if(p.cds[poi.id]>0){ addLog(`The ${poi.name} needs a rest from you (${Math.ceil(p.cds[poi.id])}s).`); return; }
+    p.channel={poi,t:0};
+  } else if(poi.type==='market'){
+    const stacks=[['prov',p.res.prov],['mat',p.res.mat],['mil',p.res.mil]].sort((a,b)=>b[1]-a[1]);
+    if(stacks[0][1]>=2){ p.res[stacks[0][0]]-=2; p.res.power+=1; bumpRes('power');
+      floaters.push({x:poi.x,y:poi.y-34,txt:'+1⚜',col:'#c9a227',t:0}); burst(poi.x,poi.y-10,'#c9a227',10);
+      addLog(`Market: traded 2 ${RES_NAMES[stacks[0][0]]} for 1 Power.`); tone(523,.1);
+    } else addLog('Market: you need 2 of one resource to trade for 1 Power.');
+  } else if(poi.type==='rookery'){
+    if(p.res.power>=CFG.ravenCost){ p.res.power-=CFG.ravenCost; p.ravens++; bumpRes('power');
+      floaters.push({x:poi.x,y:poi.y-34,txt:'+1 𓅃',col:'#c9c9c9',t:0});
+      addLog(`You buy a Raven (−${CFG.ravenCost} Power). Press R during a Council to vote from afar.`); tone(587,.1);
+    } else addLog(`A Raven costs ${CFG.ravenCost} Power.`);
+  } else if(poi.type==='shrine'){
+    if(game.shrineCd>0){ addLog(`The Shrine is quiet (${Math.ceil(game.shrineCd)}s).`); return; }
+    if(p.res.prov>=CFG.shrineCost){ p.res.prov-=CFG.shrineCost;
+      game.banners.land=clamp(game.banners.land-1,-4,4); game.shrineCd=CFG.shrineCd; bumpBanner('land');
+      burst(poi.x,poi.y-16,'#9ac0e0',20);
+      addLog('You make an offering at the Wild Shrine. <b>The Land shifts toward the Wild.</b>'); tone(330,.3);
+    } else addLog(`An offering costs ${CFG.shrineCost} Provisions.`);
+  } else if(poi.type==='quest'){
+    if(p.questDone){ addLog('The Border Camp is supplied.'); return; }
+    if(p.res.mil>=3){ p.res.mil-=3; p.questDone=true; p.res.power+=2; bumpRes('mil'); bumpRes('power');
+      burst(poi.x,poi.y-10,'#c9a227',24);
+      addLog('<b>Quest complete:</b> the Border Camp is supplied. +2 Power, +2 pts at the Coronation.'); tone(660,.2); tone(880,.3,.2);
+    } else addLog(`The quartermaster needs 3 Military (you carry ${p.res.mil}).`);
+  }
+}
+function tryCommit(){
+  if(game.state!=='council') return;
+  if(!biddingOpen()){ addLog('Deliberation — the bidding has not opened.'); return; }
+  const side=onPlatform();
+  if(!side){ addLog('Stand on the Aye or Nay platform to commit Power.'); return; }
+  const p=game.player;
+  if(p.side && p.side!==side){ addLog(`Your Power is sworn to ${p.side==='aye'?'Aye':'Nay'} — no defecting after paying.`); return; }
+  if(p.res.power<1){ addLog('You have no Power to commit.'); return; }
+  commitPower(p,side,1,false);
+}
+function tryRaven(){
+  if(game.state!=='council'){ addLog('Ravens fly during Council only.'); return; }
+  if(!biddingOpen()){ addLog('The bidding has not opened.'); return; }
+  const p=game.player;
+  if(onPlatform()){ addLog('You are at the Council — commit in person with Space.'); return; }
+  if(p.ravens<1){ addLog('You have no Raven.'); return; }
+  if(p.res.power<1){ addLog('You have no Power to send.'); return; }
+  if(p.side){ sendRaven(p.side); return; }
+  const el=document.getElementById('ravenDlg'); el.style.display='block';
+  el.innerHTML=`<h4>𓅃 Send your Raven with 1 Power</h4>
+   <button id="rvA">AYE — ${game.dilemma.aye.label}</button>
+   <button id="rvN">NAY — ${game.dilemma.nay.label}</button>
+   <button id="rvX" style="opacity:.7">keep the bird</button>`;
+  document.getElementById('rvA').onclick=()=>{ el.style.display='none'; sendRaven('aye'); };
+  document.getElementById('rvN').onclick=()=>{ el.style.display='none'; sendRaven('nay'); };
+  document.getElementById('rvX').onclick=()=>{ el.style.display='none'; };
+}
+function sendRaven(s){
+  const p=game.player;
+  if(game.state!=='council'||!biddingOpen()||p.ravens<1||p.res.power<1) return;
+  p.ravens--; commitPower(p,s,1,true);
+  addLog(`Your Raven carries 1 Power to <b>${s==='aye'?'Aye':'Nay'}</b>.`); tone(784,.12);
+}
+/* ============================== JUICE =============================== */
+const particles=[], floaters=[], flyers=[];
+let shake=0, flashA=0;
+function addShake(n){ shake=Math.max(shake,n); }
+function flash(a){ flashA=Math.max(flashA,a); }
+function burst(x,y,col,n){
+  for(let i=0;i<n;i++){ const a=rnd(0,6.283), s=rnd(30,130);
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,life:rnd(.4,.9),t:0,col,size:rnd(1.5,3.5)}); }
+}
+function dust(x,y){ particles.push({x,y,vx:rnd(-12,12),vy:rnd(-24,-6),life:rnd(.3,.6),t:0,col:'#bdb08a',size:rnd(1,2.4)}); }
+function updateJuice(dt){
+  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.t+=dt;
+    if(p.t>p.life){ particles.splice(i,1); continue; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=60*dt; }
+  for(let i=floaters.length-1;i>=0;i--){ const f=floaters[i]; f.t+=dt;
+    if(f.t>1.4){ floaters.splice(i,1); continue; } f.y-=28*dt; }
+  for(let i=flyers.length-1;i>=0;i--){ const f=flyers[i]; f.t+=dt/0.55;
+    if(f.t>=1){ burst(f.tx,f.ty,f.col,5); flyers.splice(i,1); } }
+  shake*=Math.pow(0.001,dt); if(shake<0.2)shake=0;
+  flashA*=Math.pow(0.005,dt); if(flashA<0.01)flashA=0;
+}
+function bumpRes(r){ const el=document.querySelector(`#plinth .res[data-r="${r}"]`);
+  if(el){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); } }
+function bumpBanner(k){ const el=document.getElementById(k==='crown'?'bCrown':k==='way'?'bWay':'bLand');
+  if(el){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); } }
+/* ============================== LOOP ================================ */
+let last=0;
+function frame(t){
+  const rawDt=Math.min(0.05,(t-last)/1000)||0.016; last=t;
+  const dt=rawDt*RUNTIME.ts;
+  game.t+=dt;
+  if(game.state!=='menu' && game.state!=='end') update(dt);
+  updateJuice(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+function update(dt){
+  game.phaseT+=dt;
+  if(game.shrineCd>0) game.shrineCd-=dt;
+  game.actors.forEach(a=>{ for(const k in a.cds) if(a.cds[k]>0) a.cds[k]-=dt; });
+  if(game.state==='roam'){
+    const remain=game.phaseDur-game.phaseT;
+    if(!game.posted && remain<=game.phaseDur*CFG.postAtRemaining) heraldPost();
+    if(game.posted && !game.hornDone && remain<=CFG.hornSec) horn();
+    if(game.phaseT>=game.phaseDur){ if(!game.posted) heraldPost(); startCouncil(); }
+  } else if(game.state==='council'){
+    if(game.phaseT>=game.phaseDur) gavel();
+  } else if(game.state==='interlude'){
+    if(game.phaseT>=game.phaseDur) nextSeason();
+  }
+  if(game.state==='roam'||game.state==='council'){
+    playerUpdate(dt);
+    game.actors.forEach(a=>{ if(a.isBot) botUpdate(a,dt); });
+  }
+  updateHud();
+}
+/* ============================== RENDER ============================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let grain=null;
+function resize(){ cv.width=innerWidth; cv.height=innerHeight; makeGrain(); }
+addEventListener('resize',resize);
+function makeGrain(){
+  grain=document.createElement('canvas'); grain.width=cv.width; grain.height=cv.height;
+  const g=grain.getContext('2d');
+  for(let i=0;i<cv.width*cv.height/160;i++){
+    g.fillStyle=`rgba(${Math.random()<0.5?0:255},${Math.random()<0.5?0:230},200,${rnd(0.015,0.05)})`;
+    g.fillRect(Math.random()*cv.width, Math.random()*cv.height, 1.3, 1.3);
+  }
+}
+/* -- static background, pre-rendered once -- */
+function mulberry(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0;
+  let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+let bg=null;
+function renderBg(){
+  bg=document.createElement('canvas'); bg.width=W+160; bg.height=H+160;
+  const b=bg.getContext('2d'); b.translate(80,80);
+  // table
+  b.fillStyle='#241a0e'; b.fillRect(-80,-80,W+160,H+160);
+  const edge=b.createLinearGradient(0,-80,0,H+80);
+  edge.addColorStop(0,'#2e2212'); edge.addColorStop(1,'#1c1409');
+  b.fillStyle=edge; b.fillRect(-80,-80,W+160,H+160);
+  // parchment base
+  b.fillStyle='#5f6e47'; b.fillRect(0,0,W,H);
+  for(const z of ZONES.slice(1)){ b.fillStyle=z.col;
+    roundRect(b,z.x1,z.y1,z.x2-z.x1,z.y2-z.y1,26); b.fill();
+    b.strokeStyle='rgba(0,0,0,.14)'; b.lineWidth=3; roundRect(b,z.x1,z.y1,z.x2-z.x1,z.y2-z.y1,26); b.stroke(); }
+  // roads with soft edges
+  for(const r of ROADS){ b.fillStyle=r.col; b.fillRect(r.x1,r.y1,r.x2-r.x1,r.y2-r.y1);
+    b.strokeStyle='rgba(60,45,20,.35)'; b.lineWidth=2;
+    b.strokeRect(r.x1,r.y1,r.x2-r.x1,r.y2-r.y1);
+    b.setLineDash([14,18]); b.strokeStyle='rgba(255,245,220,.25)'; b.beginPath();
+    if(r.x2-r.x1>r.y2-r.y1){ b.moveTo(r.x1,(r.y1+r.y2)/2); b.lineTo(r.x2,(r.y1+r.y2)/2); }
+    else { b.moveTo((r.x1+r.x2)/2,r.y1); b.lineTo((r.x1+r.x2)/2,r.y2); }
+    b.stroke(); b.setLineDash([]); }
+  // doodads (deterministic)
+  const rand=mulberry(1337);
+  const inZone=(x,y,z)=>x>=z.x1&&x<z.x2&&y>=z.y1&&y<z.y2;
+  const onRoad=(x,y)=>ROADS.some(r=>x>=r.x1-14&&x<r.x2+14&&y>=r.y1-14&&y<r.y2+14);
+  const nearTown=(x,y)=>Math.hypot(x-TOWN.x,y-TOWN.y)<230;
+  for(let i=0;i<520;i++){
+    const x=rand()*W, y=rand()*H;
+    if(onRoad(x,y)||nearTown(x,y)||inRiver(x,y)||Math.abs(x-RIVER.x1-30)<80) continue;
+    if(inZone(x,y,ZONES[3])||inZone(x,y,ZONES[4])){ tree(b,x,y,7+rand()*7,'#2e4228','#233420'); }
+    else if(inZone(x,y,ZONES[2])){ peak(b,x,y,10+rand()*14); }
+    else if(inZone(x,y,ZONES[1])){ wheat(b,x,y,rand); }
+    else if(rand()<0.16){ tree(b,x,y,5+rand()*5,'#48603a','#3a4f30'); }
+  }
+  // town plaza
+  b.fillStyle='#9c8a5e'; b.beginPath(); b.arc(TOWN.x,TOWN.y+40,190,0,7); b.fill();
+  b.fillStyle='rgba(0,0,0,.08)'; b.beginPath(); b.arc(TOWN.x,TOWN.y+40,190,0,7); b.stroke();
+  const rand2=mulberry(777);
+  for(let i=0;i<9;i++){ // little houses
+    const a=rand2()*6.283, r=120+rand2()*70;
+    const hx=TOWN.x+Math.cos(a)*r*1.15, hy=TOWN.y+40+Math.sin(a)*r*0.8;
+    if(Math.abs(hx-TOWN.x)<110 && hy>TOWN.y-90 && hy<TOWN.y+200) continue;
+    house(b,hx,hy,rand2);
+  }
+  b.setTransform(1,0,0,1,0,0);
+}
+function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+function tree(c,x,y,s,col,col2){
+  c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x,y+s*0.5,s*0.7,s*0.25,0,0,7); c.fill();
+  c.fillStyle='#4a3520'; c.fillRect(x-1.2,y-s*0.2,2.4,s*0.6);
+  c.fillStyle=col2; c.beginPath(); c.moveTo(x,y-s*1.7); c.lineTo(x+s*0.75,y+s*0.1); c.lineTo(x-s*0.75,y+s*0.1); c.fill();
+  c.fillStyle=col; c.beginPath(); c.moveTo(x,y-s*2.1); c.lineTo(x+s*0.6,y-s*0.5); c.lineTo(x-s*0.6,y-s*0.5); c.fill();
+}
+function peak(c,x,y,s){
+  c.fillStyle='#7d776f'; c.beginPath(); c.moveTo(x,y-s); c.lineTo(x+s*0.9,y+s*0.5); c.lineTo(x-s*0.9,y+s*0.5); c.fill();
+  c.fillStyle='#a29a90'; c.beginPath(); c.moveTo(x,y-s); c.lineTo(x+s*0.35,y-s*0.35); c.lineTo(x-s*0.15,y-s*0.3); c.fill();
+}
+function wheat(c,x,y,rand){
+  c.strokeStyle='#a89a4e'; c.lineWidth=1.2;
+  for(let i=0;i<3;i++){ const ox=x+rand()*8-4; c.beginPath(); c.moveTo(ox,y+4); c.quadraticCurveTo(ox+2,y-3,ox+rand()*4-2,y-8); c.stroke(); }
+}
+function house(c,x,y,rand){
+  const w=26+rand()*10,h=16+rand()*6;
+  c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x,y+h*0.55,w*0.6,5,0,0,7); c.fill();
+  c.fillStyle='#8a734e'; c.fillRect(x-w/2,y-h/2,w,h);
+  c.fillStyle='#5e4326'; c.beginPath(); c.moveTo(x-w/2-3,y-h/2); c.lineTo(x,y-h*1.25); c.lineTo(x+w/2+3,y-h/2); c.fill();
+  c.fillStyle='#3a2c18'; c.fillRect(x-3,y-2,6,h/2+2);
+}
+/* -- camera / zoom -- */
+let zoom=1, zoomTarget=1;
+const cam={x:0,y:0,zoom:1};
+window.cam=cam;
+function minZoom(){ return Math.min(cv.width/(W+160), cv.height/(H+160)); }
+cv.addEventListener('wheel',e=>{ e.preventDefault();
+  zoomTarget=clamp(zoomTarget*(e.deltaY>0?0.85:1.18), minZoom(), 1.4);
+},{passive:false});
+function toggleWarMap(){ zoomTarget = zoomTarget>minZoom()*1.5 ? minZoom() : 1; }
+/* -- mouse: hover + click-to-interact + dev drag -- */
+const mouse={x:0,y:0,wx:0,wy:0,hover:null,hoverKind:null};
+let dragPoi=null;
+cv.addEventListener('mousemove',e=>{
+  mouse.x=e.clientX; mouse.y=e.clientY;
+  mouse.wx=e.clientX/cam.zoom+cam.x; mouse.wy=e.clientY/cam.zoom+cam.y;
+  if(dragPoi){ dragPoi.x=Math.round(mouse.wx); dragPoi.y=Math.round(mouse.wy); refreshPoiEditor(); return; }
+  mouse.hover=null; mouse.hoverKind=null;
+  if(game.state==='menu'||game.state==='end') { cv.style.cursor='default'; return; }
+  for(const poi of POIS){ if(Math.hypot(mouse.wx-poi.x, mouse.wy-poi.y)<30){ mouse.hover=poi; mouse.hoverKind='poi'; break; } }
+  if(!mouse.hover){
+    if(Math.hypot(mouse.wx-FERRY_W.x,mouse.wy-FERRY_W.y)<34||Math.hypot(mouse.wx-FERRY_E.x,mouse.wy-FERRY_E.y)<34){ mouse.hoverKind='ferry'; }
+    else if(inRect({x:mouse.wx,y:mouse.wy},PLAT_AYE)){ mouse.hoverKind='aye'; }
+    else if(inRect({x:mouse.wx,y:mouse.wy},PLAT_NAY)){ mouse.hoverKind='nay'; }
+  }
+  cv.style.cursor = mouse.hoverKind? 'pointer':'default';
+});
+cv.addEventListener('mousedown',e=>{
+  if(devOpen && document.getElementById('pDrag').checked && mouse.hoverKind==='poi'){ dragPoi=mouse.hover; e.preventDefault(); }
+});
+cv.addEventListener('mouseup',()=>{ if(dragPoi){ dragPoi=null; } });
+cv.addEventListener('click',e=>{
+  if(game.state==='menu'||game.state==='end'||dragPoi) return;
+  if(devOpen && document.getElementById('pDrag').checked && mouse.hoverKind==='poi') return;
+  const p=game.player;
+  const wx=mouse.wx, wy=mouse.wy;
+  if(mouse.hoverKind==='poi'){
+    const poi=mouse.hover;
+    if(dist(p,poi)<=46){ doInteract({type:'poi',poi}); }
+    else { p.moveTarget={x:poi.x, y:poi.y+26}; p.pending={type:'poi',poi}; }
+    return;
+  }
+  if(mouse.hoverKind==='ferry'){
+    const f=Math.hypot(wx-FERRY_W.x,wy-FERRY_W.y)<34?FERRY_W:FERRY_E;
+    if(dist(p,f)<=46) doInteract({type:'ferry'});
+    else { p.moveTarget={x:f.x,y:f.y-20}; p.pending={type:'ferry'}; }
+    return;
+  }
+  if(mouse.hoverKind==='aye'||mouse.hoverKind==='nay'){
+    const r=mouse.hoverKind==='aye'?PLAT_AYE:PLAT_NAY;
+    const cx=(r.x1+r.x2)/2, cy=(r.y1+r.y2)/2;
+    if(onPlatform()===mouse.hoverKind && game.state==='council'){ tryCommit(); }
+    else { p.moveTarget={x:cx,y:cy}; p.pending=null; }
+    return;
+  }
+  let t={x:clamp(wx,10,W-10), y:clamp(wy,10,H-10)};
+  if(inRiver(t.x,t.y)) t.x=(t.x<(RIVER.x1+RIVER.x2)/2)?RIVER.x1-14:RIVER.x2+14;
+  p.moveTarget=t; p.pending=null; p.channel=null;
+});
+/* -- draw -- */
+function panPos(side){
+  const beam=beamGeom();
+  return side==='aye'? {x:beam.ax, y:beam.ay+26} : {x:beam.nx, y:beam.ny+26};
+}
+function beamGeom(){
+  const cx=TOWN.x, cy=TOWN.y-96;
+  const target=clamp((game.nayPot-game.ayePot)*0.05, -0.28, 0.28);
+  beamGeom.a = beamGeom.a===undefined? 0 : beamGeom.a + (target-beamGeom.a)*0.08;
+  const a=beamGeom.a, L=120;
+  return {cx,cy,a, ax:cx-Math.cos(a)*L, ay:cy-Math.sin(a)*L, nx:cx+Math.cos(a)*L, ny:cy+Math.sin(a)*L};
+}
+function draw(){
+  ctx.fillStyle='#141009'; ctx.fillRect(0,0,cv.width,cv.height);
+  if(game.state==='menu'){ return; }
+  if(!bg) renderBg();
+  const p=game.player;
+  zoom += (zoomTarget-zoom)*0.15;
+  const vw=cv.width/zoom, vh=cv.height/zoom;
+  let camX=(vw>=W+160)?(W-vw)/2 : clamp(p.x-vw/2,-80,W+80-vw);
+  let camY=(vh>=H+160)?(H-vh)/2 : clamp(p.y-vh/2,-80,H+80-vh);
+  if(shake>0){ camX+=rnd(-shake,shake)/zoom; camY+=rnd(-shake,shake)/zoom; }
+  cam.x=camX; cam.y=camY; cam.zoom=zoom;
+  ctx.save(); ctx.scale(zoom,zoom); ctx.translate(-camX,-camY);
+  ctx.drawImage(bg,-80,-80);
+  drawRiver();
+  drawChamber();
+  for(const poi of POIS) drawPoi(poi);
+  drawQueen();
+  const sorted=game.actors.slice().sort((a,b)=>a.y-b.y);
+  for(const a of sorted) drawTotem(a);
+  // move marker
+  if(p.moveTarget){ const t=game.t*6;
+    ctx.strokeStyle='rgba(201,162,39,.9)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(p.moveTarget.x,p.moveTarget.y,8+Math.sin(t)*2,0,7); ctx.stroke();
+    ctx.lineWidth=1; }
+  // particles & floaters & flyers
+  for(const pt of particles){ ctx.globalAlpha=1-pt.t/pt.life; ctx.fillStyle=pt.col;
+    ctx.fillRect(pt.x-pt.size/2,pt.y-pt.size/2,pt.size,pt.size); }
+  ctx.globalAlpha=1;
+  for(const f of flyers){ const e=1-Math.pow(1-Math.min(1,f.t),2);
+    const x=f.x+(f.tx-f.x)*e, y=f.y+(f.ty-f.y)*e - Math.sin(e*3.14)*40;
+    ctx.fillStyle=f.col; ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fill();
+    ctx.strokeStyle='#141009'; ctx.stroke(); }
+  ctx.font='bold 14px Georgia'; ctx.textAlign='center';
+  for(const f of floaters){ ctx.globalAlpha=Math.max(0,1-f.t/1.4);
+    ctx.fillStyle='#141009'; ctx.fillText(f.txt,f.x+1,f.y+1);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); }
+  ctx.globalAlpha=1;
+  // hover tooltip
+  if(mouse.hoverKind==='poi' && !devOpen) drawTooltip(mouse.hover);
+  ctx.restore();
+  // vignette + grain + flash (screen space)
+  const vg=ctx.createRadialGradient(cv.width/2,cv.height/2,Math.min(cv.width,cv.height)*0.42, cv.width/2,cv.height/2,Math.max(cv.width,cv.height)*0.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(10,6,2,.55)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,cv.width,cv.height);
+  if(grain) ctx.drawImage(grain,0,0);
+  if(flashA>0){ ctx.fillStyle=`rgba(255,240,200,${flashA})`; ctx.fillRect(0,0,cv.width,cv.height); }
+}
+function drawRiver(){
+  ctx.fillStyle='#38536b'; ctx.fillRect(RIVER.x1,0,RIVER.x2-RIVER.x1,H);
+  ctx.fillStyle='#3f5d78';
+  const t=game.t;
+  for(let y=0;y<H;y+=46){
+    const off=Math.sin(t*1.2+y*0.05)*6;
+    ctx.fillRect(RIVER.x1+10+off, y+(t*22)%46, RIVER.x2-RIVER.x1-20, 5);
+  }
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  for(let y=0;y<H;y+=90){
+    const off=Math.sin(t*2+y*0.09)*8;
+    ctx.fillRect(RIVER.x1+16+off,(y+t*34)%H, 20, 2.4);
+  }
+  // banks
+  ctx.strokeStyle='rgba(20,25,30,.4)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(RIVER.x1,0); ctx.lineTo(RIVER.x1,H); ctx.moveTo(RIVER.x2,0); ctx.lineTo(RIVER.x2,H); ctx.stroke(); ctx.lineWidth=1;
+  // bridge
+  ctx.fillStyle='#8a6f42'; ctx.fillRect(RIVER.x1-8,BRIDGE.y1,RIVER.x2-RIVER.x1+16,BRIDGE.y2-BRIDGE.y1);
+  ctx.strokeStyle='#5e4326';
+  for(let x=RIVER.x1-8;x<RIVER.x2+8;x+=10){ ctx.beginPath(); ctx.moveTo(x,BRIDGE.y1); ctx.lineTo(x,BRIDGE.y2); ctx.stroke(); }
+  // ferry docks
+  for(const f of [FERRY_W,FERRY_E]){
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(f.x,f.y+8,26,7,0,0,7); ctx.fill();
+    ctx.fillStyle='#8a6f42'; ctx.fillRect(f.x-24,f.y-8,48,16);
+    ctx.strokeStyle='#5e4326'; ctx.strokeRect(f.x-24,f.y-8,48,16);
+    ctx.fillStyle='#e8dcc0'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('⛵ ferry',f.x,f.y-14);
+  }
+}
+function drawChamber(){
+  const g=beamGeom();
+  // hall
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(TOWN.x,TOWN.y+56,120,22,0,0,7); ctx.fill();
+  const grad=ctx.createLinearGradient(0,TOWN.y-70,0,TOWN.y+50);
+  grad.addColorStop(0,'#6b5836'); grad.addColorStop(1,'#4a3c24');
+  ctx.fillStyle=grad; ctx.fillRect(TOWN.x-96,TOWN.y-52,192,104);
+  ctx.fillStyle='#3a2e1a'; ctx.beginPath(); ctx.moveTo(TOWN.x-108,TOWN.y-52); ctx.lineTo(TOWN.x,TOWN.y-118); ctx.lineTo(TOWN.x+108,TOWN.y-52); ctx.fill();
+  ctx.fillStyle='#c9a227'; ctx.font='15px Georgia'; ctx.textAlign='center'; ctx.fillText('⚖ Council Hall', TOWN.x, TOWN.y+4);
+  // the great scale
+  ctx.strokeStyle='#2a2118'; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.moveTo(g.cx,g.cy+34); ctx.lineTo(g.cx,g.cy-8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(g.ax,g.ay); ctx.lineTo(g.nx,g.ny); ctx.stroke();
+  ctx.lineWidth=2;
+  for(const [px,py,pot,col] of [[g.ax,g.ay,game.ayePot,'#4e7d4e'],[g.nx,g.ny,game.nayPot,'#8d3b3b']]){
+    ctx.strokeStyle='#2a2118';
+    ctx.beginPath(); ctx.moveTo(px-14,py); ctx.lineTo(px-10,py+22); ctx.moveTo(px+14,py); ctx.lineTo(px+10,py+22); ctx.stroke();
+    ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(px,py+26,22,8,0,0,7); ctx.fill();
+    ctx.strokeStyle='#e8dcc0'; ctx.beginPath(); ctx.ellipse(px,py+26,22,8,0,0,7); ctx.stroke();
+    // token stack
+    const n=Math.min(pot,10);
+    for(let i=0;i<n;i++){ ctx.fillStyle='#c9a227'; ctx.beginPath();
+      ctx.ellipse(px+((i%3)-1)*8, py+22-Math.floor(i/3)*5, 5,2.6,0,0,7); ctx.fill();
+      ctx.strokeStyle='#7d6316'; ctx.stroke(); }
+    if(pot>0){ ctx.fillStyle='#e8dcc0'; ctx.font='bold 13px Georgia'; ctx.fillText(pot, px, py-8); }
+  }
+  // platforms
+  drawPlatform(PLAT_AYE,'AYE','#4e7d4e', mouse.hoverKind==='aye');
+  drawPlatform(PLAT_NAY,'NAY','#8d3b3b', mouse.hoverKind==='nay');
+}
+function drawPlatform(r,lbl,col,hov){
+  const bidding=biddingOpen();
+  const glow=bidding? (0.55+Math.sin(game.t*5)*0.15) : 0.75;
+  ctx.fillStyle=col; ctx.globalAlpha=glow*(hov?1.15:1);
+  roundRect(ctx,r.x1,r.y1,r.x2-r.x1,r.y2-r.y1,8); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle= hov? '#ffe9a8':'#e8dcc0'; ctx.lineWidth=hov?2.5:1.5;
+  roundRect(ctx,r.x1,r.y1,r.x2-r.x1,r.y2-r.y1,8); ctx.stroke(); ctx.lineWidth=1;
+  ctx.fillStyle='#e8dcc0'; ctx.font='bold 15px Georgia'; ctx.textAlign='center';
+  ctx.fillText(lbl,(r.x1+r.x2)/2,r.y1-8);
+}
+function drawQueen(){
+  const qx=TOWN.x, qy=TOWN.y-140;
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(qx,qy+10,12,4,0,0,7); ctx.fill();
+  ctx.fillStyle='#d8c8e8';
+  ctx.beginPath(); ctx.moveTo(qx-8,qy+8); ctx.quadraticCurveTo(qx-9,qy-18,qx,qy-22); ctx.quadraticCurveTo(qx+9,qy-18,qx+8,qy+8); ctx.fill();
+  ctx.beginPath(); ctx.arc(qx,qy-26,7,0,7); ctx.fill();
+  ctx.fillStyle='#c9a227';
+  ctx.beginPath(); ctx.moveTo(qx-6,qy-30); ctx.lineTo(qx-4,qy-36); ctx.lineTo(qx-1,qy-31); ctx.lineTo(qx+2,qy-37); ctx.lineTo(qx+5,qy-31); ctx.lineTo(qx+6,qy-30); ctx.lineTo(qx+6,qy-28); ctx.lineTo(qx-6,qy-28); ctx.fill();
+  ctx.fillStyle='#e8dcc0'; ctx.font='11px Georgia'; ctx.textAlign='center'; ctx.fillText('The Queen', qx, qy+24);
+}
+function drawPoi(poi){
+  const shuttered = game.state==='council' && (poi.type==='shrine'||poi.type==='rookery');
+  const hov = mouse.hover===poi;
+  ctx.globalAlpha = shuttered? .5:1;
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(poi.x,poi.y+13,24,8,0,0,7); ctx.fill();
+  if(hov){ ctx.strokeStyle='rgba(255,233,168,.9)'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(poi.x,poi.y,27+Math.sin(game.t*6)*2,0,7); ctx.stroke(); ctx.lineWidth=1; }
+  // building sprite by type
+  if(poi.type==='gather' && poi.res==='prov') mill(poi);
+  else if(poi.type==='gather' && poi.res==='mat') mine(poi);
+  else if(poi.type==='gather' && poi.res==='mil') fortpoi(poi);
+  else if(poi.type==='market') stall(poi);
+  else if(poi.type==='rookery') tower(poi);
+  else if(poi.type==='shrine') stones(poi);
+  else if(poi.type==='quest') campp(poi);
+  else generic(poi);
+  ctx.fillStyle='#e8dcc0'; ctx.font='12px Georgia'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(20,16,9,.6)'; ctx.fillRect(poi.x-42,poi.y+22,84,15);
+  ctx.fillStyle='#e8dcc0'; ctx.fillText(poi.name,poi.x,poi.y+33);
+  if(poi.type==='gather'){
+    for(let i=0;i<poi.stockMax;i++){ ctx.fillStyle= i<poi.stock? RES_COL[poi.res]:'#3a2e18';
+      ctx.beginPath(); ctx.arc(poi.x-poi.stockMax*6+i*12+6, poi.y-36, 3.6,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.stroke(); }
+    const cd=game.player.cds[poi.id];
+    if(cd>0){ ctx.fillStyle='#e0684a'; ctx.font='11px Georgia'; ctx.fillText(`⏳ ${Math.ceil(cd)}s`, poi.x, poi.y+48); }
+  }
+  ctx.globalAlpha=1;
+}
+function mill(p){
+  ctx.fillStyle='#8a734e'; ctx.fillRect(p.x-11,p.y-14,22,26);
+  ctx.fillStyle='#5e4326'; ctx.beginPath(); ctx.moveTo(p.x-14,p.y-14); ctx.lineTo(p.x,p.y-28); ctx.lineTo(p.x+14,p.y-14); ctx.fill();
+  const spin = p.stock>0? game.t*1.6 : 0;
+  ctx.strokeStyle='#e0d4b0'; ctx.lineWidth=3;
+  for(let i=0;i<4;i++){ const a=spin+i*1.5708;
+    ctx.beginPath(); ctx.moveTo(p.x,p.y-18); ctx.lineTo(p.x+Math.cos(a)*17, p.y-18+Math.sin(a)*17); ctx.stroke(); }
+  ctx.lineWidth=1;
+}
+function mine(p){
+  ctx.fillStyle='#6e6862'; ctx.beginPath(); ctx.moveTo(p.x-16,p.y+12); ctx.lineTo(p.x,p.y-18); ctx.lineTo(p.x+16,p.y+12); ctx.fill();
+  ctx.fillStyle='#1c150c'; ctx.beginPath(); ctx.arc(p.x,p.y+11,7,3.14,0); ctx.fill();
+  ctx.strokeStyle='#4a4540'; ctx.beginPath(); ctx.moveTo(p.x-16,p.y+12); ctx.lineTo(p.x+16,p.y+12); ctx.stroke();
+}
+function fortpoi(p){
+  ctx.fillStyle='#7d7268'; ctx.fillRect(p.x-14,p.y-12,28,24);
+  for(let i=0;i<4;i++){ ctx.fillRect(p.x-14+i*8,p.y-16,5,5); }
+  ctx.fillStyle='#8d3b3b'; ctx.beginPath(); ctx.moveTo(p.x,p.y-16); ctx.lineTo(p.x,p.y-30); ctx.lineTo(p.x+10,p.y-26); ctx.lineTo(p.x,p.y-22); ctx.fill();
+}
+function stall(p){
+  ctx.fillStyle='#8a734e'; ctx.fillRect(p.x-13,p.y-4,26,14);
+  ctx.fillStyle='#a44'; ctx.beginPath(); ctx.moveTo(p.x-16,p.y-4); ctx.lineTo(p.x-10,p.y-16); ctx.lineTo(p.x+10,p.y-16); ctx.lineTo(p.x+16,p.y-4); ctx.fill();
+  ctx.fillStyle='#e8dcc0';
+  for(let i=0;i<3;i++) ctx.fillRect(p.x-16+i*11,p.y-4,5,12);
+}
+function tower(p){
+  ctx.fillStyle='#6e6862'; ctx.fillRect(p.x-8,p.y-24,16,36);
+  ctx.fillStyle='#54504a'; ctx.fillRect(p.x-10,p.y-28,20,6);
+  const t=game.t;
+  ctx.fillStyle='#222'; // circling raven
+  const rx=p.x+Math.cos(t*1.4)*20, ry=p.y-34+Math.sin(t*2.8)*5;
+  ctx.beginPath(); ctx.moveTo(rx-4,ry); ctx.quadraticCurveTo(rx,ry-4,rx+4,ry); ctx.quadraticCurveTo(rx,ry+1,rx-4,ry); ctx.fill();
+}
+function stones(p){
+  ctx.fillStyle='#8a94a0';
+  for(let i=0;i<5;i++){ const a=i*1.257-1.57;
+    ctx.fillRect(p.x+Math.cos(a)*15-3, p.y+Math.sin(a)*10-8, 6, 16); }
+  const gl=0.25+Math.sin(game.t*2)*0.12;
+  ctx.fillStyle=`rgba(154,192,224,${gl})`; ctx.beginPath(); ctx.arc(p.x,p.y-2,8,0,7); ctx.fill();
+}
+function campp(p){
+  ctx.fillStyle='#7a6848'; ctx.beginPath(); ctx.moveTo(p.x-14,p.y+10); ctx.lineTo(p.x-4,p.y-10); ctx.lineTo(p.x+6,p.y+10); ctx.fill();
+  ctx.strokeStyle='#4a3520'; ctx.beginPath(); ctx.moveTo(p.x+10,p.y+10); ctx.lineTo(p.x+10,p.y-22); ctx.stroke();
+  const w=Math.sin(game.t*3)*2;
+  ctx.fillStyle='#c9a227'; ctx.beginPath(); ctx.moveTo(p.x+10,p.y-22); ctx.lineTo(p.x+24+w,p.y-18); ctx.lineTo(p.x+10,p.y-14); ctx.fill();
+}
+function generic(p){
+  ctx.fillStyle='#241c10'; ctx.beginPath(); ctx.arc(p.x,p.y,18,0,7); ctx.fill();
+  ctx.strokeStyle='#c9a227'; ctx.stroke();
+}
+function drawTotem(a){
+  const bobY = a.moving? Math.abs(Math.sin(a.bob))*4 : 0;
+  const x=a.x, y=a.y-bobY;
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(a.x,a.y+13,15,5.5,0,0,7); ctx.fill();
+  // plinth with resource pips (public info)
+  ctx.fillStyle='#3a2e18'; ctx.beginPath(); ctx.ellipse(x,y+9,14,6,0,0,7); ctx.fill();
+  ctx.strokeStyle='#241c10'; ctx.stroke();
+  let pi=0;
+  for(const r of ['power','prov','mat','mil']){
+    const n=Math.min(a.res[r], 4);
+    for(let i=0;i<n;i++){ const ang=(pi*0.5)-1.9; pi++;
+      ctx.fillStyle=RES_COL[r]; ctx.beginPath();
+      ctx.arc(x+Math.cos(ang)*17, y+9+Math.sin(ang)*7, 2.4,0,7); ctx.fill(); }
+  }
+  // pawn body
+  const grad=ctx.createLinearGradient(x-10,0,x+10,0);
+  const c2=shade(a.col,-40);
+  grad.addColorStop(0,c2); grad.addColorStop(0.45,a.col); grad.addColorStop(1,c2);
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(x-10,y+8);
+  ctx.quadraticCurveTo(x-11,y-6, x-4,y-14);
+  ctx.quadraticCurveTo(x-8,y-20, x,y-21);
+  ctx.quadraticCurveTo(x+8,y-20, x+4,y-14);
+  ctx.quadraticCurveTo(x+11,y-6, x+10,y+8);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(20,16,9,.7)'; ctx.stroke();
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(x,y-26,8.5,0,7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(x-3,y-28,2.6,0,7); ctx.fill();
+  // heraldic band
+  ctx.fillStyle=a.isBot? shade(a.col,-70):'#c9a227';
+  ctx.fillRect(x-9,y-12,18,3.4);
+  // name
+  ctx.font='12px Georgia'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(20,16,9,.75)'; ctx.fillText(a.short,x+1,y-40+1);
+  ctx.fillStyle= a.isBot? '#e8dcc0':'#ffe9a8'; ctx.fillText(a.short,x,y-40);
+  // channel ring
+  if(a.channel){ const f=Math.min(1,a.channel.t/CFG.channelSec);
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.arc(x,y-8,20,-1.5708,-1.5708+6.283); ctx.stroke();
+    ctx.strokeStyle='#c9a227'; ctx.lineWidth=3.5;
+    ctx.beginPath(); ctx.arc(x,y-8,20,-1.5708,-1.5708+f*6.283); ctx.stroke(); ctx.lineWidth=1; }
+  if(game.state==='council' && game.bids[a.id]){
+    const b=game.bids[a.id];
+    ctx.fillStyle= b.side==='aye'? '#8fbf8f':'#d08a8a';
+    ctx.font='bold 12px Georgia'; ctx.fillText(`${b.amt}⚜ ${b.side.toUpperCase()}`, x, y+30);
+  }
+}
+function shade(hex,amt){
+  const n=parseInt(hex.slice(1),16);
+  const r=clamp((n>>16)+amt,0,255), g=clamp(((n>>8)&255)+amt,0,255), b=clamp((n&255)+amt,0,255);
+  return `rgb(${r},${g},${b})`;
+}
+function drawTooltip(poi){
+  const lines=[poi.name];
+  if(poi.type==='gather'){ lines.push(`${RES_NAMES[poi.res]} · stock ${poi.stock}/${poi.stockMax}`);
+    const cd=game.player.cds[poi.id]; lines.push(cd>0? `your cooldown ${Math.ceil(cd)}s` : 'click to harvest'); }
+  if(poi.type==='market') lines.push('2-of-a-kind → 1 Power','click to trade');
+  if(poi.type==='rookery') lines.push(`Raven: ${CFG.ravenCost} Power`,'click to buy');
+  if(poi.type==='shrine') lines.push('1 Provisions → Land shifts Wild', game.shrineCd>0?`quiet ${Math.ceil(game.shrineCd)}s`:'click to offer');
+  if(poi.type==='quest') lines.push(game.player.questDone?'supplied ✓':`needs 3 Military (you: ${game.player.res.mil})`);
+  ctx.font='12px Georgia'; const w=Math.max(...lines.map(l=>ctx.measureText(l).width))+16;
+  const x=poi.x+34, y=poi.y-30;
+  ctx.fillStyle='rgba(24,18,10,.94)'; roundRect(ctx,x,y,w,lines.length*16+10,5); ctx.fill();
+  ctx.strokeStyle='#c9a227'; roundRect(ctx,x,y,w,lines.length*16+10,5); ctx.stroke();
+  ctx.textAlign='left';
+  lines.forEach((l,i)=>{ ctx.fillStyle= i===0?'#c9a227':'#e8dcc0'; ctx.fillText(l,x+8,y+18+i*16); });
+  ctx.textAlign='center';
+}
+/* ============================== HUD ================================= */
+function show(id,on){ document.getElementById(id).style.display=on?'':'none'; }
+function fmt(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+let chimeT=0;
+function setPrompt(t){ const el=document.getElementById('prompt'); el.style.display=t?'block':'none'; el.innerHTML=t; }
+function chime(t,sec){ const el=document.getElementById('chime'); el.style.display='block'; el.innerHTML=t; chimeT=sec; }
+function updateHud(){
+  const remain=game.phaseDur-game.phaseT;
+  const ph = game.state==='roam'? 'Roam' : game.state==='council'? (biddingOpen()?'Council · Bidding':'Council · Deliberation') : 'The Gavel';
+  document.getElementById('phaseLbl').textContent=`Season ${game.season}/${CFG.seasons} · ${ph}`;
+  const tl=document.getElementById('timerLbl'); tl.textContent=fmt(remain);
+  tl.className='timer'+((game.state==='roam'&&game.posted&&remain<=CFG.hornSec)?' warn':'');
+  drawTrack('trCrown',game.banners.crown); drawTrack('trWay',game.banners.way); drawTrack('trLand',game.banners.land);
+  document.getElementById('ruin').textContent=`Ruin ${game.ruin}/8`;
+  const p=game.player;
+  document.getElementById('plinth').innerHTML =
+    `<span class="res" data-r="power"><b>⚜ Power ${p.res.power}</b></span>`+
+    `<span class="res" data-r="prov">☘ Provisions ${p.res.prov}</span>`+
+    `<span class="res" data-r="mat">⛏ Materials ${p.res.mat}</span>`+
+    `<span class="res" data-r="mil">⚔ Military ${p.res.mil}</span>`+
+    `<span class="res" data-r="raven">𓅃 Ravens ${p.ravens}</span>`;
+  const ag=document.getElementById('agenda');
+  ag.innerHTML = `<h4>${p.agenda.arch} — open agenda</h4>`+
+    p.agenda.lines.map(l=>`<div class="${l.test(game,p)?'done':''}">${l.test(game,p)?'✓':'•'} ${l.txt} <b>(${l.pts})</b></div>`).join('')+
+    `<div style="color:var(--dim);margin-top:4px;">Marta wants the Throne & Military · Bren wants it Tamed & rich · Sable wants the Old Ways & Power.</div>`;
+  if(game.state==='interlude' && game.lastOutcome){
+    chime(`⚖ <b>${game.lastOutcome.choice}</b> carries — Aye ${game.lastOutcome.aye} · Nay ${game.lastOutcome.nay}`+
+      (game.lastOutcome.leader?`<br><span style="font-size:13px">${game.lastOutcome.leader} takes the Leader's favour${game.lastOutcome.payTxt||''}</span>`:''), 1);
+  }
+  if(chimeT>0){ chimeT-=0.016*RUNTIME.ts; if(chimeT<=0) document.getElementById('chime').style.display='none'; }
+  let pr='';
+  const poi=nearestPoi();
+  if(p.channel) pr=`Harvesting the ${p.channel.poi.name}…`;
+  else if(dist(p,FERRY_W)<44||dist(p,FERRY_E)<44) pr=`Ferry across (−${CFG.ferryCost} Power) — click or <kbd>E</kbd>`;
+  else if(poi){
+    if(poi.type==='gather') pr = p.cds[poi.id]>0? `${poi.name}: your cooldown ${Math.ceil(p.cds[poi.id])}s` : poi.stock>0? `Harvest ${RES_NAMES[poi.res]} (${poi.stock} left) — click or <kbd>E</kbd>`:`${poi.name}: out of stock this season`;
+    if(poi.type==='market') pr=`Trade 2-of-a-kind → 1 Power — click or <kbd>E</kbd>`;
+    if(poi.type==='rookery') pr=`Buy a Raven (−${CFG.ravenCost} Power) — click or <kbd>E</kbd>`;
+    if(poi.type==='shrine') pr=`Offering: 1 Provisions → The Land shifts Wild — click or <kbd>E</kbd>`;
+    if(poi.type==='quest') pr= p.questDone? 'Border Camp: supplied ✓' : `Deliver 3 Military (you have ${p.res.mil}) — click or <kbd>E</kbd>`;
+  }
+  else if(game.state==='council'){
+    const side=onPlatform();
+    if(side) pr = biddingOpen()? `<kbd>Space</kbd> or click platform: commit 1 Power to ${side.toUpperCase()}${p.side?` (sworn to ${p.side.toUpperCase()})`:' — first token locks your side'}`:'Deliberation — bidding opens shortly';
+    else if(p.ravens>0) pr=`<kbd>R</kbd> Send your Raven, or get to a platform`;
+  }
+  setPrompt(pr);
+}
+function drawTrack(id,v){
+  const el=document.getElementById(id);
+  if(!el.children.length){ for(let i=0;i<9;i++){ const c=document.createElement('div'); c.className='cell'+(i===4?' mid':''); el.appendChild(c);} }
+  for(let i=0;i<9;i++) el.children[i].classList.toggle('on', i===v+4);
+}
+function renderNotice(card){
+  const n=document.getElementById('notice');
+  n.style.display='block'; n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop');
+  n.innerHTML=`<div class="cat">${card.cat}</div><h3>${card.title}</h3><p>${card.text}</p>
+   <div class="stakes"><div class="a"><b>Aye:</b> ${card.aye.label}<br>${fxText(card.aye.fx)}</div>
+   <div class="n"><b>Nay:</b> ${card.nay.label}<br>${fxText(card.nay.fx)}</div></div>
+   <p style="color:var(--dim);font-size:11px;margin-top:6px;">Hidden side-effects reveal at the gavel. The Queen leans… somewhere.</p>`;
+}
+function fxText(fx){
+  fx=fx||{};
+  const P={crown:['Throne','Commons'],way:['Old Ways','New Ways'],land:['Wild','Tamed']};
+  const parts=[]; for(const k in fx){ const d=fx[k]; if(P[k]) parts.push(`${k==='crown'?'Crown':k==='way'?'Way':'Land'} → ${P[k][d>0?1:0]} ${Math.abs(d)}`); }
+  return parts.join(' · ')||'—';
+}
+function addLog(html){
+  game.log.push(html); if(game.log.length>5) game.log.shift();
+  document.getElementById('logBody').innerHTML=game.log.map(l=>`<div>${l}</div>`).join('');
+}
+/* ============================== AUDIO =============================== */
+let actx=null;
+function tone(freq,dur,delay=0){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.frequency.value=freq; o.type='triangle'; o.connect(g); g.connect(actx.destination);
+    const t0=actx.currentTime+delay; g.gain.setValueAtTime(.11,t0); g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    o.start(t0); o.stop(t0+dur+.02);
+  }catch(e){}
+}
+/* ============================== DEV TOOLS =========================== */
+let devOpen=false;
+const $=id=>document.getElementById(id);
+$('devBtn').addEventListener('click',()=>{ devOpen=!devOpen; $('dev').style.display=devOpen?'block':'none';
+  if(devOpen){ refreshDilemmaEditor(); refreshPoiEditor(); } });
+document.querySelectorAll('#dev .tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#dev .tabs button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');
+  $('devDilemmas').style.display= b.dataset.t==='dilemmas'?'block':'none';
+  $('devPois').style.display= b.dataset.t==='pois'?'block':'none';
+  $('devGame').style.display= b.dataset.t==='game'?'block':'none';
+}));
+function allCards(){ return [...CHAIN_WAR, ...SINGLES]; }
+function refreshDilemmaEditor(keepId){
+  const sel=$('dSel'); const cur=keepId||sel.value;
+  sel.innerHTML=allCards().map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${c.id} — ${c.title}</option>`).join('');
+  loadCardJson();
+}
+function loadCardJson(){
+  const c=allCards().find(c=>c.id===$('dSel').value)||allCards()[0];
+  $('dJson').value=JSON.stringify(c,null,1); $('dErr').textContent='';
+}
+$('dSel').addEventListener('change',loadCardJson);
+$('dApply').addEventListener('click',()=>{
+  try{
+    const obj=JSON.parse($('dJson').value);
+    if(!obj.id||!obj.title||!obj.aye||!obj.nay) throw new Error('needs id, title, aye, nay');
+    let arr=CHAIN_WAR.some(c=>c.id===obj.id)?CHAIN_WAR:SINGLES;
+    const i=arr.findIndex(c=>c.id===obj.id);
+    if(i>=0) arr[i]=obj; else SINGLES.push(obj);
+    $('dErr').textContent=''; refreshDilemmaEditor(obj.id); addLog(`<i>dev: dilemma “${obj.id}” saved.</i>`);
+  }catch(e){ $('dErr').textContent=e.message; }
+});
+$('dNew').addEventListener('click',()=>{
+  const id='c'+Math.floor(Math.random()*10000);
+  $('dJson').value=JSON.stringify({id, cat:'New Category', title:'New Dilemma',
+    text:'Two or three sentences of setup, read aloud by the Herald.',
+    aye:{label:'Do the thing', fx:{crown:1}}, nay:{label:'Refuse', fx:{way:-1}}},null,1);
+  $('dErr').textContent='edit, then Apply to add';
+});
+$('dPlayNext').addEventListener('click',()=>{
+  try{ const obj=JSON.parse($('dJson').value); game.forcedNext=obj.id;
+    $('dErr').textContent=''; addLog(`<i>dev: “${obj.id}” queued as the next dilemma.</i>`);
+  }catch(e){ $('dErr').textContent=e.message; }
+});
+function refreshPoiEditor(keepId){
+  const sel=$('pSel'); const cur=keepId||sel.value;
+  sel.innerHTML=POIS.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.id} — ${p.name}</option>`).join('');
+  loadPoiJson();
+}
+function loadPoiJson(){
+  const p=POIS.find(p=>p.id===$('pSel').value)||POIS[0];
+  if(p) $('pJson').value=JSON.stringify(p,null,1); $('pErr').textContent='';
+}
+$('pSel').addEventListener('change',loadPoiJson);
+$('pApply').addEventListener('click',()=>{
+  try{
+    const obj=JSON.parse($('pJson').value);
+    if(!obj.id||!obj.type||obj.x==null||obj.y==null) throw new Error('needs id, type, x, y');
+    if(obj.type==='gather'){ if(!obj.res||!obj.stockMax) throw new Error('gather needs res + stockMax');
+      if(obj.stock==null) obj.stock=obj.stockMax; }
+    const i=POIS.findIndex(p=>p.id===obj.id);
+    if(i>=0) POIS[i]=obj; else POIS.push(obj);
+    $('pErr').textContent=''; refreshPoiEditor(obj.id); addLog(`<i>dev: location “${obj.id}” saved.</i>`);
+  }catch(e){ $('pErr').textContent=e.message; }
+});
+$('pNew').addEventListener('click',()=>{
+  $('pJson').value=JSON.stringify({id:'poi'+Math.floor(Math.random()*1000), name:'New Place', type:'gather', res:'prov', stockMax:3, x:Math.round(game.player.x), y:Math.round(game.player.y)},null,1);
+  $('pErr').textContent='edit, then Apply to add (spawns at your totem)';
+});
+$('gSkip').addEventListener('click',()=>{
+  if(game.state==='roam'){ if(!game.posted) heraldPost(); game.phaseT=game.phaseDur; }
+  else if(game.state==='council'||game.state==='interlude') game.phaseT=game.phaseDur;
+});
+$('gRes').addEventListener('click',()=>{ const r=game.player.res; r.power+=5;r.prov+=5;r.mat+=5;r.mil+=5;
+  ['power','prov','mat','mil'].forEach(bumpRes); });
+$('gRuin').addEventListener('click',()=>{ game.ruin=Math.min(8,game.ruin+1); });
+$('gTs').addEventListener('input',()=>{ RUNTIME.ts=+$('gTs').value; $('gTsV').textContent=RUNTIME.ts+'×'; });
+$('gExport').addEventListener('click',()=>{
+  const data=JSON.stringify({singles:SINGLES, chain:CHAIN_WAR, pois:POIS},null,1);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download='party-kingdom-content.json'; a.click();
+});
+$('gImportBtn').addEventListener('click',()=>{
+  const ta=$('gImport');
+  if(ta.style.display==='none'){ ta.style.display='block'; $('gErr').textContent='paste JSON, press Import again'; return; }
+  try{
+    const obj=JSON.parse(ta.value);
+    if(obj.singles) SINGLES=obj.singles;
+    if(obj.chain) CHAIN_WAR=obj.chain;
+    if(obj.pois){ POIS=obj.pois; POIS.forEach(p=>{ if(p.type==='gather'&&p.stock==null) p.stock=p.stockMax; }); }
+    $('gErr').textContent='imported ✓'; ta.style.display='none';
+    refreshDilemmaEditor(); refreshPoiEditor();
+  }catch(e){ $('gErr').textContent=e.message; }
+});
+/* ============================== MENU / SETTINGS ===================== */
+function bindSlider(sid,vid,key,fmtFn){
+  const s=$(sid), v=$(vid);
+  s.addEventListener('input',()=>{ CFG[key]=+s.value; v.textContent=fmtFn(+s.value);
+    if(key==='roamSec'&&game.state==='roam') game.phaseDur=CFG.roamSec;
+    if(key==='councilSec'&&game.state==='council') game.phaseDur=CFG.councilSec;
+  });
+}
+const fmtMin=v=>fmt(v);
+bindSlider('s0Roam','v0Roam','roamSec',fmtMin); bindSlider('s0Council','v0Council','councilSec',fmtMin);
+bindSlider('s0Seasons','v0Seasons','seasons',v=>v);
+bindSlider('sRoam','vRoam','roamSec',fmtMin); bindSlider('sCouncil','vCouncil','councilSec',fmtMin);
+bindSlider('sSeasons','vSeasons','seasons',v=>v);
+document.querySelectorAll('.presets button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.presets button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');
+  const p=PRESETS[b.dataset.p]; Object.assign(CFG,p);
+  $('s0Roam').value=p.roamSec; $('v0Roam').textContent=fmt(p.roamSec);
+  $('s0Council').value=p.councilSec; $('v0Council').textContent=fmt(p.councilSec);
+  $('s0Seasons').value=p.seasons; $('v0Seasons').textContent=p.seasons;
+}));
+$('startBtn').addEventListener('click',()=>{ tone(523,.15); startGame(); });
+$('gear').addEventListener('click',()=>{
+  const el=$('settings'); el.style.display=el.style.display==='block'?'none':'block';
+  $('sRoam').value=CFG.roamSec; $('vRoam').textContent=fmt(CFG.roamSec);
+  $('sCouncil').value=CFG.councilSec; $('vCouncil').textContent=fmt(CFG.councilSec);
+  $('sSeasons').value=CFG.seasons; $('vSeasons').textContent=CFG.seasons;
+});
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
